@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Providers\RouteServiceProvider;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Session;
 
 class LoginController extends Controller
 {
@@ -19,7 +21,7 @@ class LoginController extends Controller
     |
     */
 
-    use AuthenticatesUsers;
+    use AuthenticatesUsers {login as loginAuthenticateUsers;}
 
     /**
      * Where to redirect users after login.
@@ -36,5 +38,24 @@ class LoginController extends Controller
     public function __construct()
     {
         $this->middleware('guest')->except('logout');
+    }
+
+    public function login(\Illuminate\Http\Request  $request)
+    {
+        $apiResponse = Http::asForm()->post(config('api.url').'login',[
+            'email'=>$request->email,
+            'password'=>$request->password,
+            ]);
+        $token = json_decode($apiResponse->body())->success->token ?? null;
+        if(200 == $apiResponse->status())
+        {
+            Session::put('api_token',$token);
+            $user = json_decode($apiResponse->body())->user;
+            Session::put('userFirstname',$user->firstname);
+            return $this->loginAuthenticateUsers($request);
+        }
+        else{
+            abort('403');
+        }
     }
 }
